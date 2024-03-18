@@ -18,6 +18,7 @@ variable "avail_zone" {}
 variable "env_prefix" {}
 variable "my_ip" {}
 variable "docker_container_port" {}
+variable "instance_type" {}
 
 # Create a VPC
 resource "aws_vpc" "dockerapp-vpc" {
@@ -137,3 +138,60 @@ resource "aws_default_security_group" "dockerapp-default-sg" {
 #   cidr_ipv4         = "0.0.0.0/0"
 #   ip_protocol       = "-1" # semantically equivalent to all ports
 # }
+
+##Create network interface for EC2 instance and assign subnet to it
+# resource "aws_network_interface" "dockerapp-server-network-interface" {
+#   subnet_id   = aws_subnet.dockerapp-subnet-1.id
+#   private_ips = ["172.16.10.100"]
+
+#   tags = {
+#     Name = "primary_network_interface for dockerapp server"
+#   }
+# }
+
+#Fetch latest ami for amazon linux software image that will be used later to pass that ami in ec2 aws_instance
+data "aws_ami" "amazon-linux-image" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["137112412989"] # AWS
+}
+
+#Used to validate aws_ami.amazon-linux-image results with terraform plan
+#Remove .id suffix to get all data 
+output "aws_ami_id" {
+  value = data.aws_ami.amazon-linux-image.id
+}
+
+#750 hours per month of Linux, RHEL, or SLES t2.micro or t3.micro instance dependent on region
+#750 hours per month of public IPv4 address regardless of instance type
+#Create ec2 instance
+resource "aws_instance" "dockerapp-server" {
+  ami           = data.aws_ami.amazon-linux-image.id
+  instance_type = var.instance_type
+  availability_zone = var.avail_zone
+  associate_public_ip_address = true
+#Assign Subnet
+  subnet_id = aws_subnet.dockerapp-subnet-1.id
+#Assign Security group
+  vpc_security_group_ids = [aws_default_security_group.dockerapp-default-sg.id]
+#SSH key used for connecting to EC2 instance (The key is created manually using AWS UI)
+  key_name = "aws-terraform"
+
+  # network_interface {
+  #   network_interface_id = aws_network_interface.dockerapp-server-network-interface.id
+  #   device_index         = 0
+  # }
+  tags = {
+    Name = "${var.env_prefix}-server"
+  }
+}
