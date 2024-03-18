@@ -19,6 +19,7 @@ variable "env_prefix" {}
 variable "my_ip" {}
 variable "docker_container_port" {}
 variable "instance_type" {}
+variable "public_key_location" {}
 
 # Create a VPC
 resource "aws_vpc" "dockerapp-vpc" {
@@ -157,21 +158,25 @@ data "aws_ami" "amazon-linux-image" {
     name   = "name"
     values = ["al2023-ami-*-x86_64"]
   }
-
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
   }
-
   owners = ["137112412989"] # AWS
 }
 
-#Used to validate aws_ami.amazon-linux-image results with terraform plan
+#Used to validate aws_ami.amazon-linux-image details with terraform plan
 #Remove .id suffix to get all data 
 output "aws_ami_id" {
   value = data.aws_ami.amazon-linux-image.id
 }
 
+#Create public and private key pair to use for ssh connection
+#You must run terraform destroy before because for some reason it is not recognized that ec2 instance is using key and must also be updatedid
+resource "aws_key_pair" "ssh-key" {
+  key_name   = "aws-terraform"
+  public_key = file(var.public_key_location)
+  }
 #750 hours per month of Linux, RHEL, or SLES t2.micro or t3.micro instance dependent on region
 #750 hours per month of public IPv4 address regardless of instance type
 #Create ec2 instance
@@ -184,8 +189,8 @@ resource "aws_instance" "dockerapp-server" {
   subnet_id = aws_subnet.dockerapp-subnet-1.id
 #Assign Security group
   vpc_security_group_ids = [aws_default_security_group.dockerapp-default-sg.id]
-#SSH key used for connecting to EC2 instance (The key is created manually using AWS UI)
-  key_name = "aws-terraform"
+#SSH key used for connecting to EC2 instance
+  key_name = aws_key_pair.ssh-key.key_name
 
   # network_interface {
   #   network_interface_id = aws_network_interface.dockerapp-server-network-interface.id
@@ -194,4 +199,9 @@ resource "aws_instance" "dockerapp-server" {
   tags = {
     Name = "${var.env_prefix}-server"
   }
+}
+
+#Used to get EC2 server public IP after it is created
+output "ec2_public_ip" {
+  value = aws_instance.dockerapp-server.public_ip
 }
