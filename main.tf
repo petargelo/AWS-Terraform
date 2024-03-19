@@ -25,7 +25,7 @@ variable "public_key_location" {}
 resource "aws_vpc" "dockerapp-vpc" {
   cidr_block = var.vpc_cidr_block
   tags = {
-    Name: "${var.env_prefix}-vpc"
+    Name : "${var.env_prefix}-vpc"
   }
 }
 
@@ -35,7 +35,7 @@ resource "aws_subnet" "dockerapp-subnet-1" {
   cidr_block        = var.subnet_cidr_block
   availability_zone = var.avail_zone
   tags = {
-    Name: "${var.env_prefix}-subnet-1"
+    Name : "${var.env_prefix}-subnet-1"
   }
 }
 
@@ -76,7 +76,7 @@ resource "aws_default_route_table" "dockerapp-default-rtb" {
   }
 
   tags = {
-    Name = "${var.env_prefix}-default-rtb" 
+    Name = "${var.env_prefix}-default-rtb"
   }
 }
 
@@ -84,32 +84,32 @@ resource "aws_default_route_table" "dockerapp-default-rtb" {
 resource "aws_default_security_group" "dockerapp-default-sg" {
   vpc_id = aws_vpc.dockerapp-vpc.id
 
-#Allow ssh from my personal PC
+  #Allow ssh from my personal PC
   ingress {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
+    protocol    = "tcp"
+    from_port   = 22
+    to_port     = 22
     cidr_blocks = [var.my_ip]
   }
 
-#Allow access for docker container on port 8080 to all IP addresses
+  #Allow access for docker container on port 8080 to all IP addresses
   ingress {
-    protocol = "tcp"
-    from_port = var.docker_container_port
-    to_port = var.docker_container_port
+    protocol    = "tcp"
+    from_port   = var.docker_container_port
+    to_port     = var.docker_container_port
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   #Allow all outgoing traffic
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = ["0.0.0.0/0"]
     prefix_list_ids = []
   }
   tags = {
-    Name: "${var.env_prefix}-default-sg"
+    Name : "${var.env_prefix}-default-sg"
   }
 }
 
@@ -176,31 +176,28 @@ output "aws_ami_id" {
 resource "aws_key_pair" "ssh-key" {
   key_name   = "aws-terraform"
   public_key = file(var.public_key_location)
-  }
+}
 #750 hours per month of Linux, RHEL, or SLES t2.micro or t3.micro instance dependent on region
 #750 hours per month of public IPv4 address regardless of instance type
 #Create ec2 instance
 resource "aws_instance" "dockerapp-server" {
-  ami           = data.aws_ami.amazon-linux-image.id
-  instance_type = var.instance_type
-  availability_zone = var.avail_zone
+  ami                         = data.aws_ami.amazon-linux-image.id
+  instance_type               = var.instance_type
+  availability_zone           = var.avail_zone
   associate_public_ip_address = true
-#Assign Subnet
+  #Assign Subnet
   subnet_id = aws_subnet.dockerapp-subnet-1.id
-#Assign Security group
+  #Assign Security group
   vpc_security_group_ids = [aws_default_security_group.dockerapp-default-sg.id]
-#SSH key used for connecting to EC2 instance
+  #SSH key used for connecting to EC2 instance
   key_name = aws_key_pair.ssh-key.key_name
 
-  # network_interface {
-  #   network_interface_id = aws_network_interface.dockerapp-server-network-interface.id
-  #   device_index         = 0
-  # }
   tags = {
     Name = "${var.env_prefix}-server"
   }
+  #Install and start docker engine on EC2 instance and run simple container to test connection
+  user_data = file("C:\\Users\\pgelo\\ASEE_projekti\\DevOps\\aws-terraform\\install-docker-script.sh")
 }
-
 #Used to get EC2 server public IP after it is created
 output "ec2_public_ip" {
   value = aws_instance.dockerapp-server.public_ip
