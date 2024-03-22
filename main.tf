@@ -20,55 +20,14 @@ resource "aws_vpc" "dockerapp-vpc" {
   }
 }
 
-#Create subnets (route table is automatically created)
-resource "aws_subnet" "dockerapp-subnet-1" {
-  vpc_id            = aws_vpc.dockerapp-vpc.id
-  cidr_block        = var.subnet_cidr_block
-  availability_zone = var.avail_zone
-  tags = {
-    Name : "${var.env_prefix}-subnet-1"
-  }
-}
-
-#Create Internet Gateway for VPC
-resource "aws_internet_gateway" "dockerapp-igw" {
-  vpc_id = aws_vpc.dockerapp-vpc.id
-  tags = {
-    Name = "${var.env_prefix}-igw"
-  }
-}
-
-#Create route table for new VPC (creates route table with routes that are associated to vpc_id=aws_vpc.dockerapp-vpc.id and also adds route 0.0.0.0/0 )
-# resource "aws_route_table" "dockerapp-route-table-1" {
-#   vpc_id = aws_vpc.dockerapp-vpc.id
-#   route {
-#     cidr_block = "0.0.0.0/0" # ruta prema subnetu koji je u var.subnet_cidr_block je automatski kreirana kad se kreirao subnet pa nju ne treba
-#     gateway_id = aws_internet_gateway.dockerapp-igw.id
-#   }
-#   tags = {
-#     Name = "${var.env_prefix}-rtb"
-#   }
-# }
-
-# Associate created subnet with created route table (by default created subnet is associated to route table that is created with it by default. Since we created new route table that also contains 0.0.0.0/0 route we need to associate subnet with that route table)
-# Associate created subnet with route table that also has 0.0.0.0/0 route together with 10.0.0.0/16	route
-# resource "aws_route_table_association" "a-rtb-subnet" {
-#   subnet_id      = aws_subnet.dockerapp-subnet-1.id
-#   route_table_id = aws_route_table.dockerapp-route-table-1.id
-# }
-
-#Edit default routing table of newly created VPC (instead of adding additional routing table with 0.0.0.0 and associating created subnet with new routing table )
-resource "aws_default_route_table" "dockerapp-default-rtb" {
+#Call module from modules/subnet directory so it can be used here
+module "dockerapp-subnet" {
+  source = "./modules/subnet"
+  subnet_cidr_block = var.subnet_cidr_block #Assign value from parent values file - terraform-dockerapp-dev.tfvars to variable subnet_cidr_block defined in parent variables.tf and pass it to child variables file in modules/subnet/variables.tf
+  avail_zone = var.avail_zone
+  env_prefix = var.env_prefix
+  vpc_id = aws_vpc.dockerapp-vpc.id # Reference value from resource object to child module variable (in this case value from vpc) 
   default_route_table_id = aws_vpc.dockerapp-vpc.default_route_table_id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.dockerapp-igw.id
-  }
-
-  tags = {
-    Name = "${var.env_prefix}-default-rtb"
-  }
 }
 
 #Edit default security group created for new VPC
@@ -170,7 +129,7 @@ resource "aws_instance" "dockerapp-server" {
   availability_zone           = var.avail_zone
   associate_public_ip_address = true
   #Assign Subnet
-  subnet_id = aws_subnet.dockerapp-subnet-1.id
+  subnet_id = module.dockerapp-subnet.subnet.id #Reference value from child module subnet outputs.tf entry and call attribute id of the object defined in "subnet" output
   #Assign Security group
   vpc_security_group_ids = [aws_default_security_group.dockerapp-default-sg.id]
   #SSH key used for connecting to EC2 instance
