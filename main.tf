@@ -20,6 +20,7 @@ variable "my_ip" {}
 variable "docker_container_port" {}
 variable "instance_type" {}
 variable "public_key_location" {}
+variable "private_key_location" {}
 
 # Create a VPC
 resource "aws_vpc" "dockerapp-vpc" {
@@ -196,7 +197,25 @@ resource "aws_instance" "dockerapp-server" {
     Name = "${var.env_prefix}-server"
   }
   #Install and start docker engine on EC2 instance and run simple container to test connection
-  user_data = file("C:\\Users\\pgelo\\ASEE_projekti\\DevOps\\aws-terraform\\install-docker-script.sh")
+  # user_data = file("C:\\Users\\pgelo\\ASEE_projekti\\DevOps\\aws-terraform\\install-docker-script.sh")
+
+  #Copy install-docker-script.sh to remote EC2 server so remote-exec could run it in the next step
+ provisioner "file" {
+    source      = "install-docker-script.sh"
+    destination = "/home/ec2-user/install-docker-script.sh"
+ }
+  #Used to run script that exists on EC2 server. This is used to omit user_data part because it does not return status. This way we don't need to login to remote server and check if script executed correctly. 
+  provisioner "remote-exec" {
+    script = file("install-docker-script.sh")
+  }
+  # This part enables ssh connection to EC2 remote host to enable usage of remote-script and file provisioner with it
+  connection {
+    type     = "ssh"
+    user     = "ec2-user" # default username for EC2 instance
+    private_key = file(var.private_key_location)
+    # host     = "${var.aws_instance.dockerapp-server.public_ip}" Since we are inside "aws_instance" "dockerapp-server" we can use self to reffer to that object and get its public IP
+    host = self.public_ip
+  }
 }
 #Used to get EC2 server public IP after it is created
 output "ec2_public_ip" {
