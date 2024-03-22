@@ -12,15 +12,6 @@ provider "aws" {
   region = "eu-west-3"
 }
 
-variable "vpc_cidr_block" {}
-variable "subnet_cidr_block" {}
-variable "avail_zone" {}
-variable "env_prefix" {}
-variable "my_ip" {}
-variable "docker_container_port" {}
-variable "instance_type" {}
-variable "public_key_location" {}
-
 # Create a VPC
 resource "aws_vpc" "dockerapp-vpc" {
   cidr_block = var.vpc_cidr_block
@@ -165,20 +156,13 @@ data "aws_ami" "amazon-linux-image" {
   owners = ["137112412989"] # AWS
 }
 
-#Used to validate aws_ami.amazon-linux-image details with terraform plan
-#Remove .id suffix to get all data 
-output "aws_ami_id" {
-  value = data.aws_ami.amazon-linux-image.id
-}
-
 #Create public and private key pair to use for ssh connection
 #You must run terraform destroy before because for some reason it is not recognized that ec2 instance is using key and must also be updatedid
 resource "aws_key_pair" "ssh-key" {
   key_name   = "aws-terraform"
   public_key = file(var.public_key_location)
 }
-#750 hours per month of Linux, RHEL, or SLES t2.micro or t3.micro instance dependent on region
-#750 hours per month of public IPv4 address regardless of instance type
+
 #Create ec2 instance
 resource "aws_instance" "dockerapp-server" {
   ami                         = data.aws_ami.amazon-linux-image.id
@@ -197,8 +181,4 @@ resource "aws_instance" "dockerapp-server" {
   }
   #Install and start docker engine on EC2 instance and run simple container to test connection
   user_data = file("C:\\Users\\pgelo\\ASEE_projekti\\DevOps\\aws-terraform\\install-docker-script.sh")
-}
-#Used to get EC2 server public IP after it is created
-output "ec2_public_ip" {
-  value = aws_instance.dockerapp-server.public_ip
 }
