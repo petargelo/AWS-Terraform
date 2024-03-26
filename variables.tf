@@ -6,3 +6,4 @@ variable "my_ip" {}
 variable "docker_container_port" {}
 variable "instance_type" {}
 variable "public_key_location" {}
+variable "image_name" {}
