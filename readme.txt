@@ -15,3 +15,18 @@ VPC with subnet inside.
 Connect to internet using aws internet gateway and configured it in the route table.
 Created security group that allows 22 and 8080 ports. This security group will later be used by ec2 instance
 ##################
+
+##################
+IMPORTANT NOTE:
+##################
+Variables are assigned in .tfvars file that is not kept inside this repository. 
+To run code from this repository you should create your own .tfvars file with following values assigned:
+vpc_cidr_block    
+subnet_cidr_block 
+avail_zone            
+env_prefix            
+my_ip                 
+docker_container_port 
+instance_type
+public_key_location
+image_name 
